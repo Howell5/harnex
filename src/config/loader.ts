@@ -32,7 +32,10 @@ export function loadConfig(configPath?: string): HarnessConfig {
   if (typeof userConfig !== "object" || userConfig === null) {
     throw new Error(`Invalid config file: ${configPath}`);
   }
-  return deepMerge(structuredClone(DEFAULT_CONFIG), userConfig) as HarnessConfig;
+  return deepMerge(
+    structuredClone(DEFAULT_CONFIG) as unknown as Record<string, unknown>,
+    userConfig as Record<string, unknown>,
+  ) as unknown as HarnessConfig;
 }
 
 function deepMerge(
