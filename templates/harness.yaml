@@ -1,0 +1,35 @@
+# Harness CLI configuration
+# Copy to your project root as harness.yaml and customize
+
+max_iterations: 15
+passing_threshold: 7.5
+
+generator:
+  max_turns: 50
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Glob
+    - Grep
+
+evaluator:
+  allowed_tools:
+    - Read
+    - Bash
+    - Glob
+    - Grep
+  criteria_file: ./criteria/default.yaml
+
+planner:
+  allowed_tools:
+    - Read
+    - Write
+    - Glob
+    - Grep
+
+prompts:
+  planner: ./prompts/planner.md
+  generator: ./prompts/generator.md
+  evaluator: ./prompts/evaluator.md
