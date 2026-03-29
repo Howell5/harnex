@@ -40,10 +40,17 @@ All inter-agent communication happens via filesystem (spec.md, feature-list.json
 ## Install
 
 ```bash
-git clone https://github.com/Howell5/harness-cli.git
-cd harness-cli
-pnpm install
+# Global install (recommended)
+npm install -g harness-cli
+
+# Or with pnpm
+pnpm add -g harness-cli
+
+# Or run directly with npx (no install)
+npx harness-cli run --spec "..."
 ```
+
+After global install, the `harness` command is available everywhere.
 
 ## Usage
 
@@ -51,25 +58,25 @@ pnpm install
 
 ```bash
 # Inline spec
-npx tsx bin/harness.ts run --spec "Add user authentication with JWT"
+harness run --spec "Add user authentication with JWT"
 
 # Spec from file
-npx tsx bin/harness.ts run --spec-file ./task.md
+harness run --spec-file ./task.md
 
 # With custom config
-npx tsx bin/harness.ts run --spec "..." --config ./harness.yaml
+harness run --spec "..." --config ./harness.yaml
 ```
 
 ### Run planner only
 
 ```bash
-npx tsx bin/harness.ts plan --spec "Build a dashboard with charts"
+harness plan --spec "Build a dashboard with charts"
 ```
 
 ### Run evaluator only
 
 ```bash
-npx tsx bin/harness.ts eval --criteria ./criteria.yaml
+harness eval --criteria ./criteria.yaml
 ```
 
 ### Verbosity
