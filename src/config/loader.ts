@@ -1,6 +1,14 @@
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import type { HarnessConfig } from "../types.js";
+
+// Resolve paths relative to the harnex package root, not cwd
+// In dev: src/config/ → PACKAGE_ROOT is ../..
+// In build: dist/bin/ → PACKAGE_ROOT is ../..
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PACKAGE_ROOT = join(__dirname, "..", "..");
 
 export const DEFAULT_CONFIG: HarnessConfig = {
 	max_iterations: 15,
@@ -11,15 +19,15 @@ export const DEFAULT_CONFIG: HarnessConfig = {
 	},
 	evaluator: {
 		allowed_tools: ["Read", "Bash", "Glob", "Grep"],
-		criteria_file: "./criteria/default.yaml",
+		criteria_file: join(PACKAGE_ROOT, "templates", "criteria", "default.yaml"),
 	},
 	planner: {
 		allowed_tools: ["Read", "Write", "Glob", "Grep"],
 	},
 	prompts: {
-		planner: "./prompts/planner.md",
-		generator: "./prompts/generator.md",
-		evaluator: "./prompts/evaluator.md",
+		planner: join(PACKAGE_ROOT, "prompts", "planner.md"),
+		generator: join(PACKAGE_ROOT, "prompts", "generator.md"),
+		evaluator: join(PACKAGE_ROOT, "prompts", "evaluator.md"),
 	},
 };
 

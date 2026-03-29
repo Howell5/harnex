@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import type { AgentConfig, AgentResult, HarnessEvent } from "../types.js";
 
 interface Emitter {
@@ -54,12 +55,13 @@ export class ProcessManager {
 	}
 
 	private buildArgs(config: AgentConfig): string[] {
+		const systemPromptContent = readFileSync(config.systemPrompt, "utf-8");
 		const args = [
 			"-p",
 			config.inputPrompt,
 			"--system-prompt",
-			config.systemPrompt,
-			"--allowedTools",
+			systemPromptContent,
+			"--tools",
 			config.allowedTools.join(","),
 			"--output-format",
 			"text",
