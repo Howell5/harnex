@@ -1,4 +1,4 @@
-# harness-cli
+# harnex
 
 Multi-agent orchestration layer for Claude Code. Coordinates three specialized agents — **Planner**, **Generator**, and **Evaluator** — to implement complex coding tasks with iterative quality feedback.
 
@@ -40,14 +40,10 @@ All inter-agent communication happens via filesystem (spec.md, feature-list.json
 ## Install
 
 ```bash
-git clone https://github.com/Howell5/harness-cli.git
-cd harness-cli
-pnpm install
-pnpm build
-npm link        # makes `harness` command available globally
+npm install -g harnex
 ```
 
-After `npm link`, the `harness` command is available everywhere.
+After install, the `harness` command is available globally.
 
 ## Usage
 
