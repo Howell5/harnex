@@ -1,4 +1,3 @@
-#!/usr/bin/env tsx
 import { parseArgs } from "node:util";
 import type { Verbosity } from "../src/types.js";
 

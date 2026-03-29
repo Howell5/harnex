@@ -3,10 +3,17 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "harness": "./bin/harness.ts"
+    "harness": "./dist/bin/harness.js"
   },
+  "files": [
+    "dist",
+    "prompts",
+    "templates"
+  ],
   "scripts": {
+    "build": "tsup",
     "dev": "tsx bin/harness.ts",
+    "prepublishOnly": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check src/ bin/ tests/",
@@ -17,12 +24,13 @@
   },
   "dependencies": {
     "chalk": "^5.6.2",
-    "tsx": "^4.21.0",
     "yaml": "^2.8.3"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.9",
     "@types/node": "^25.5.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
   }
