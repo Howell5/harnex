@@ -40,17 +40,14 @@ All inter-agent communication happens via filesystem (spec.md, feature-list.json
 ## Install
 
 ```bash
-# Global install (recommended)
-npm install -g harness-cli
-
-# Or with pnpm
-pnpm add -g harness-cli
-
-# Or run directly with npx (no install)
-npx harness-cli run --spec "..."
+git clone https://github.com/Howell5/harness-cli.git
+cd harness-cli
+pnpm install
+pnpm build
+npm link        # makes `harness` command available globally
 ```
 
-After global install, the `harness` command is available everywhere.
+After `npm link`, the `harness` command is available everywhere.
 
 ## Usage
 
