@@ -1,5 +1,5 @@
-import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentConfig, AgentResult, HarnessEvent } from "../types.js";
 
 interface Emitter {
@@ -7,71 +7,98 @@ interface Emitter {
 }
 
 export class ProcessManager {
-	constructor(
-		private emitter: Emitter,
-		private claudeBinary: string = "claude",
-	) {}
+	constructor(private emitter: Emitter) {}
 
 	async spawn(config: AgentConfig): Promise<AgentResult> {
-		const args = this.buildArgs(config);
-		const startTime = Date.now();
-
-		return new Promise((resolve) => {
-			const proc = spawn(this.claudeBinary, args, {
-				cwd: config.workingDir,
-				stdio: ["ignore", "pipe", "pipe"],
-				env: { ...process.env },
-			});
-
-			const stdoutChunks: string[] = [];
-			const stderrChunks: string[] = [];
-
-			proc.stdout.on("data", (data: Buffer) => {
-				const text = data.toString();
-				stdoutChunks.push(text);
-				for (const line of text.split("\n").filter(Boolean)) {
-					this.emitter.emit({ type: "agent:output", agent: config.role, line });
-				}
-			});
-
-			proc.stderr.on("data", (data: Buffer) => {
-				stderrChunks.push(data.toString());
-			});
-
-			proc.on("close", (code) => {
-				const exitCode = code ?? 1;
-				const durationMs = Date.now() - startTime;
-				this.emitter.emit({ type: "agent:exit", agent: config.role, exitCode, durationMs });
-				resolve({ exitCode, stdout: stdoutChunks.join(""), stderr: stderrChunks.join("") });
-			});
-
-			proc.on("error", (err) => {
-				this.emitter.emit({
-					type: "error",
-					message: `Failed to spawn ${config.role}: ${err.message}`,
-				});
-				resolve({ exitCode: 1, stdout: stdoutChunks.join(""), stderr: err.message });
-			});
-		});
-	}
-
-	private buildArgs(config: AgentConfig): string[] {
 		const systemPromptContent = readFileSync(config.systemPrompt, "utf-8");
-		const args = [
-			"-p",
-			config.inputPrompt,
-			"--system-prompt",
-			systemPromptContent,
-			"--tools",
-			config.allowedTools.join(","),
-			"--output-format",
-			"text",
-			"--permission-mode",
-			"bypassPermissions",
-		];
-		if (config.maxTurns !== undefined) {
-			args.push("--max-turns", String(config.maxTurns));
+		const startTime = Date.now();
+		let resultText = "";
+		let lastToolName = "";
+
+		try {
+			const response = query({
+				prompt: config.inputPrompt,
+				options: {
+					systemPrompt: systemPromptContent,
+					allowedTools: config.allowedTools,
+					maxTurns: config.maxTurns,
+					permissionMode: "bypassPermissions",
+					cwd: config.workingDir,
+				},
+			});
+
+			for await (const msg of response) {
+				// biome-ignore lint: SDK message types require runtime checks
+				const m = msg as any;
+
+				if (m.type === "assistant" && m.message?.content) {
+					for (const block of m.message.content) {
+						if (block.type === "tool_use") {
+							lastToolName = block.name;
+							this.emitter.emit({
+								type: "agent:tool_call",
+								agent: config.role,
+								tool: block.name,
+								input: block.input as Record<string, unknown>,
+							});
+						}
+					}
+				}
+
+				if (m.type === "user" && m.message?.content) {
+					for (const block of m.message.content) {
+						if (block.type === "tool_result") {
+							const raw = block.content;
+							const content =
+								typeof raw === "string"
+									? raw
+									: Array.isArray(raw)
+										? raw.map((c: { text?: string }) => c.text ?? "").join("\n")
+										: String(raw ?? "");
+							this.emitter.emit({
+								type: "agent:tool_result",
+								agent: config.role,
+								tool: lastToolName,
+								result: content,
+							});
+						}
+					}
+				}
+
+				if (m.type === "result" && m.subtype === "success") {
+					resultText = m.result ?? "";
+					if (resultText) {
+						this.emitter.emit({
+							type: "agent:output",
+							agent: config.role,
+							line: resultText,
+						});
+					}
+				}
+			}
+
+			const durationMs = Date.now() - startTime;
+			this.emitter.emit({
+				type: "agent:exit",
+				agent: config.role,
+				exitCode: 0,
+				durationMs,
+			});
+			return { exitCode: 0, stdout: resultText, stderr: "" };
+		} catch (err) {
+			const durationMs = Date.now() - startTime;
+			const message = err instanceof Error ? err.message : String(err);
+			this.emitter.emit({
+				type: "error",
+				message: `${config.role} failed: ${message}`,
+			});
+			this.emitter.emit({
+				type: "agent:exit",
+				agent: config.role,
+				exitCode: 1,
+				durationMs,
+			});
+			return { exitCode: 1, stdout: "", stderr: message };
 		}
-		return args;
 	}
 }
