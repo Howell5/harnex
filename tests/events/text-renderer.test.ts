@@ -90,4 +90,97 @@ describe("TextRenderer", () => {
 		emitter.emit({ type: "agent:exit", agent: "evaluator", exitCode: 0, durationMs: 3723000 });
 		expect(output[0]).toContain("1h 2m");
 	});
+
+	it("renders Read tool_call immediately", () => {
+		const { emitter, output } = setup();
+		emitter.emit({
+			type: "agent:tool_call",
+			agent: "planner",
+			tool: "Read",
+			input: { file_path: "package.json" },
+		});
+		expect(output).toHaveLength(1);
+		expect(output[0]).toContain("[PLAN]");
+		expect(output[0]).toContain("▸");
+		expect(output[0]).toContain("Read");
+		expect(output[0]).toContain("package.json");
+	});
+
+	it("buffers Write tool_call and renders with result", () => {
+		const { emitter, output } = setup();
+		emitter.emit({
+			type: "agent:tool_call",
+			agent: "generator",
+			tool: "Write",
+			input: { file_path: "src/index.ts" },
+		});
+		expect(output).toHaveLength(0);
+
+		emitter.emit({
+			type: "agent:tool_result",
+			agent: "generator",
+			tool: "Write",
+			result: "line1\nline2\nline3",
+		});
+		expect(output).toHaveLength(1);
+		expect(output[0]).toContain("Write");
+		expect(output[0]).toContain("src/index.ts");
+		expect(output[0]).toContain("3 lines");
+	});
+
+	it("buffers Bash tool_call and shows last line of result", () => {
+		const { emitter, output } = setup();
+		emitter.emit({
+			type: "agent:tool_call",
+			agent: "generator",
+			tool: "Bash",
+			input: { command: "pnpm test" },
+		});
+		expect(output).toHaveLength(0);
+
+		emitter.emit({
+			type: "agent:tool_result",
+			agent: "generator",
+			tool: "Bash",
+			result: "running tests...\n\nTests: 12 passed (12)\n",
+		});
+		expect(output).toHaveLength(1);
+		expect(output[0]).toContain("Bash");
+		expect(output[0]).toContain("pnpm test");
+		expect(output[0]).toContain("Tests: 12 passed (12)");
+	});
+
+	it("renders Glob with file count", () => {
+		const { emitter, output } = setup();
+		emitter.emit({
+			type: "agent:tool_call",
+			agent: "planner",
+			tool: "Glob",
+			input: { pattern: "**/*.ts" },
+		});
+		emitter.emit({
+			type: "agent:tool_result",
+			agent: "planner",
+			tool: "Glob",
+			result: "src/a.ts\nsrc/b.ts\nsrc/c.ts",
+		});
+		expect(output).toHaveLength(1);
+		expect(output[0]).toContain("3 files");
+	});
+
+	it("flushes pending tool on agent:exit", () => {
+		const { emitter, output } = setup();
+		emitter.emit({
+			type: "agent:tool_call",
+			agent: "generator",
+			tool: "Bash",
+			input: { command: "echo hello" },
+		});
+		expect(output).toHaveLength(0);
+
+		emitter.emit({ type: "agent:exit", agent: "generator", exitCode: 0, durationMs: 5000 });
+		expect(output).toHaveLength(2);
+		expect(output[0]).toContain("Bash");
+		expect(output[1]).toContain("Done");
+	});
 });
