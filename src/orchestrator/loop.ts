@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadCriteria } from "../evaluator/criteria-loader.js";
 import { calculateWeightedScore } from "../evaluator/scoring.js";
@@ -7,6 +7,7 @@ import { writeProgressFile } from "../state/progress.js";
 import { StateStore } from "../state/state-store.js";
 import type { HarnessConfig, HarnessEvent } from "../types.js";
 import type { ProcessManager } from "./process-manager.js";
+import { generateTaskSlug } from "./slug.js";
 
 interface LoopOptions {
 	config: HarnessConfig;
@@ -26,19 +27,30 @@ interface LoopResult {
 
 export async function runHarnessLoop(options: LoopOptions): Promise<LoopResult> {
 	const { config, projectDir, spec, specFile, emitter, processManager } = options;
-	const harnessDir = join(projectDir, ".harnex");
-	const stateStore = new StateStore(harnessDir);
-	const featureListPath = join(projectDir, "feature-list.json");
-	const progressPath = join(projectDir, "progress.txt");
 
 	emitter.emit({ type: "harness:start", task: spec });
+
+	// Generate task directory with AI slug
+	const slug = await generateTaskSlug(spec);
+	let taskDir = join(projectDir, ".harnex", "tasks", slug);
+	let suffix = 2;
+	while (existsSync(taskDir)) {
+		taskDir = join(projectDir, ".harnex", "tasks", `${slug}-${suffix}`);
+		suffix++;
+	}
+	mkdirSync(taskDir, { recursive: true });
+
+	const stateStore = new StateStore(taskDir);
+	const featureListPath = join(taskDir, "feature-list.json");
+	const progressPath = join(taskDir, "progress.txt");
+
 	stateStore.initialize(spec, config.max_iterations);
 
 	// Phase 1: Planning
 	emitter.emit({ type: "agent:start", agent: "planner" });
 	const plannerPrompt = specFile
-		? `Read the task from: ${specFile}\n\nCreate spec.md and feature-list.json.`
-		: `Task: ${spec}\n\nCreate spec.md and feature-list.json. Read the existing codebase first.`;
+		? `Read the task from: ${specFile}\n\nWrite your outputs to the task directory:\n- Create ${taskDir}/spec.md\n- Create ${taskDir}/feature-list.json`
+		: `Task: ${spec}\n\nWrite your outputs to the task directory:\n- Create ${taskDir}/spec.md\n- Create ${taskDir}/feature-list.json\n\nRead the existing codebase first.`;
 
 	const plannerResult = await processManager.spawn({
 		role: "planner",
@@ -53,7 +65,7 @@ export async function runHarnessLoop(options: LoopOptions): Promise<LoopResult> 
 		return { success: false, iterations: 0, resets: 0, finalScore: 0 };
 	}
 
-	if (!existsSync(join(projectDir, "spec.md")) || !existsSync(featureListPath)) {
+	if (!existsSync(join(taskDir, "spec.md")) || !existsSync(featureListPath)) {
 		emitter.emit({
 			type: "error",
 			message: "Planner did not produce spec.md and/or feature-list.json",
@@ -95,7 +107,7 @@ export async function runHarnessLoop(options: LoopOptions): Promise<LoopResult> 
 				systemPrompt: config.prompts.generator,
 				allowedTools: config.generator.allowed_tools,
 				maxTurns: config.generator.max_turns,
-				inputPrompt: buildGeneratorPrompt(projectDir),
+				inputPrompt: buildGeneratorPrompt(projectDir, taskDir),
 				workingDir: projectDir,
 			});
 
@@ -153,11 +165,11 @@ export async function runHarnessLoop(options: LoopOptions): Promise<LoopResult> 
 			role: "evaluator",
 			systemPrompt: config.prompts.evaluator,
 			allowedTools: config.evaluator.allowed_tools,
-			inputPrompt: buildEvaluatorPrompt(projectDir, criteriaPath),
+			inputPrompt: buildEvaluatorPrompt(projectDir, taskDir, criteriaPath),
 			workingDir: projectDir,
 		});
 
-		const scoresPath = join(projectDir, "scores.json");
+		const scoresPath = join(taskDir, "scores.json");
 		if (!existsSync(scoresPath)) {
 			emitter.emit({ type: "error", message: "Evaluator did not produce scores.json" });
 			return { success: false, iterations: iteration, resets: resetCount, finalScore: 0 };
@@ -174,7 +186,7 @@ export async function runHarnessLoop(options: LoopOptions): Promise<LoopResult> 
 			scores,
 			weighted_avg: weightedAvg,
 			passed,
-			feedback_file: join(".harnex", "feedback", `iter-${iteration}.md`),
+			feedback_file: join(taskDir, `feedback-iter-${iteration}.md`),
 		});
 
 		if (passed) {
@@ -198,24 +210,24 @@ export async function runHarnessLoop(options: LoopOptions): Promise<LoopResult> 
 	return { success: false, iterations: iteration, resets: resetCount, finalScore };
 }
 
-function buildGeneratorPrompt(projectDir: string): string {
+function buildGeneratorPrompt(projectDir: string, taskDir: string): string {
 	return `Read your input files and implement the next pending feature:
-1. Read spec.md for requirements
-2. Read feature-list.json to find the next pending feature
-3. Read progress.txt (if exists) for context from previous work
-4. Read feedback.md (if exists) and address feedback first
+1. Read ${taskDir}/spec.md for requirements
+2. Read ${taskDir}/feature-list.json to find the next pending feature
+3. Read ${taskDir}/progress.txt (if exists) for context from previous work
+4. Read ${taskDir}/feedback.md (if exists) and address feedback first
 5. Implement the feature, commit, and update state files
 Working directory: ${projectDir}`;
 }
 
-function buildEvaluatorPrompt(projectDir: string, criteriaPath: string): string {
+function buildEvaluatorPrompt(projectDir: string, taskDir: string, criteriaPath: string): string {
 	return `Evaluate the current state of the project:
 1. Read the criteria file: ${criteriaPath}
-2. Read feature-list.json to see what was built
-3. Read spec.md for full requirements
+2. Read ${taskDir}/feature-list.json to see what was built
+3. Read ${taskDir}/spec.md for full requirements
 4. Run verification commands (tsc, linter, tests)
 5. Check each dimension's checklist items
-6. Write scores.json with per-dimension scores
-7. Write feedback.md with specific, actionable improvements
+6. Write ${taskDir}/scores.json with per-dimension scores
+7. Write ${taskDir}/feedback.md with specific, actionable improvements
 Working directory: ${projectDir}`;
 }
