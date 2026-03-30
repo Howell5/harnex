@@ -10,7 +10,6 @@ if (!command || command === "--help" || command === "-h") {
 }
 
 function getVerbosity(argv: string[]): Verbosity {
-	if (argv.includes("-vv")) return 2;
 	if (argv.includes("-v")) return 1;
 	return 0;
 }
@@ -102,8 +101,7 @@ Usage:
 
 Options:
   --config <path>    Path to harnex.yaml config
-  -v                 Verbose output (agent actions)
-  -vv                Debug output (full claude stdout)
+  -v                 Verbose output (full agent stdout)
   -h, --help         Show this help
 `);
 }
