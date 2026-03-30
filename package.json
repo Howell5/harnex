@@ -13,7 +13,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsx bin/harnex.ts",
-    "prepublishOnly": "pnpm build",
+    "prepublishOnly": "pnpm test && pnpm build && bash scripts/smoke-test.sh",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check src/ bin/ tests/",
