@@ -14,7 +14,7 @@ export class ProcessManager {
 
 	async spawn(config: AgentConfig): Promise<AgentResult> {
 		const args = this.buildArgs(config);
-		this.emitter.emit({ type: "agent:start", agent: config.role });
+		const startTime = Date.now();
 
 		return new Promise((resolve) => {
 			const proc = spawn(this.claudeBinary, args, {
@@ -40,7 +40,8 @@ export class ProcessManager {
 
 			proc.on("close", (code) => {
 				const exitCode = code ?? 1;
-				this.emitter.emit({ type: "agent:exit", agent: config.role, exitCode });
+				const durationMs = Date.now() - startTime;
+				this.emitter.emit({ type: "agent:exit", agent: config.role, exitCode, durationMs });
 				resolve({ exitCode, stdout: stdoutChunks.join(""), stderr: stderrChunks.join("") });
 			});
 
