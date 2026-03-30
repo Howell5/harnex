@@ -1,4 +1,11 @@
-import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import {
+	appendFileSync,
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	writeFileSync,
+} from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -37,6 +44,22 @@ export function initCommand(): void {
 		mkdirSync(criteriaDir, { recursive: true });
 		copyFileSync(join(PACKAGE_ROOT, "templates", "criteria", "default.yaml"), criteriaDest);
 		console.log("Created criteria/default.yaml");
+		created++;
+	}
+
+	const gitignorePath = join(cwd, ".gitignore");
+	const harnexIgnore = ".harnex/";
+
+	if (existsSync(gitignorePath)) {
+		const content = readFileSync(gitignorePath, "utf-8");
+		if (!content.includes(harnexIgnore)) {
+			appendFileSync(gitignorePath, `\n${harnexIgnore}\n`);
+			console.log("Added .harnex/ to .gitignore");
+			created++;
+		}
+	} else {
+		writeFileSync(gitignorePath, `${harnexIgnore}\n`);
+		console.log("Created .gitignore with .harnex/");
 		created++;
 	}
 
