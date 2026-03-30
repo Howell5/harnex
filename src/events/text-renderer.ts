@@ -68,9 +68,7 @@ export class TextRenderer {
 				if (event.exitCode === 0) {
 					this.output(`${AGENT_PREFIX[event.agent]}Done (${duration})`);
 				} else {
-					this.output(
-						`${AGENT_PREFIX[event.agent]}Failed (exit ${event.exitCode}, ${duration})`,
-					);
+					this.output(`${AGENT_PREFIX[event.agent]}Failed (exit ${event.exitCode}, ${duration})`);
 				}
 				break;
 			}
