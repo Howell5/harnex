@@ -90,9 +90,15 @@ export interface CriteriaConfig {
 export type HarnessEvent =
 	| { type: "harness:start"; task: string }
 	| { type: "harness:done"; iterations: number; resets: number; score: number }
-	| { type: "agent:start"; agent: AgentRole }
+	| {
+			type: "agent:start";
+			agent: AgentRole;
+			iteration?: number;
+			featuresCompleted?: number;
+			featuresTotal?: number;
+	  }
 	| { type: "agent:output"; agent: AgentRole; line: string }
-	| { type: "agent:exit"; agent: AgentRole; exitCode: number }
+	| { type: "agent:exit"; agent: AgentRole; exitCode: number; durationMs: number }
 	| { type: "agent:reset"; agent: AgentRole; count: number }
 	| {
 			type: "eval:score";
@@ -104,4 +110,4 @@ export type HarnessEvent =
 	| { type: "feature:complete"; id: string; desc: string; commit?: string }
 	| { type: "error"; message: string };
 
-export type Verbosity = 0 | 1 | 2;
+export type Verbosity = 0 | 1;
